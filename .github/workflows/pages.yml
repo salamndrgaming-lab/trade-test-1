@@ -1,0 +1,27 @@
+# Deploys apps/web to Cloudflare Pages. Needs two repo secrets:
+#   CLOUDFLARE_API_TOKEN  (token with "Cloudflare Pages: Edit")
+#   CLOUDFLARE_ACCOUNT_ID
+# Optional repo variable VITE_STATE_URL points the dashboard at the bot; leave it unset for the mock desk.
+name: pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ vars.PAGES_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+        env:
+          VITE_STATE_URL: ${{ vars.VITE_STATE_URL }}
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/web/dist --project-name=coin-trader --branch=${{ github.ref_name }}

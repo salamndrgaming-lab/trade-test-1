@@ -1,0 +1,22 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+.wrangler/
+
+# secrets — never commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+wallet*.json
+!**/fixtures/**/wallet*.json
+*.enc
+
+# runtime data
+*.sqlite
+*.sqlite3
+*.db
+data/

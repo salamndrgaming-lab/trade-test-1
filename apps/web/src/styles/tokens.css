@@ -1,0 +1,26 @@
+:root {
+  color-scheme: dark;
+  --bg: #0d0b14;
+  --panel: #16131f;
+  --panel-2: #1d1929;
+  --line: #2c2640;
+  --ink: #f2eefb;
+  --ink-2: #b4abc9;
+  --muted: #8a81a3;
+  --pink: #ff3e9a;
+  --pink-deep: #c41f72;
+  --teal: #2ee6c8;
+  --good: #3ddc84;
+  --bad: #ff5468;
+  --warn: #ffc23d;
+  --pixel: 'Silkscreen', ui-monospace, monospace;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --frame: 6px;
+  --radius: 4px;
+  --tap: 44px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
