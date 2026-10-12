@@ -55,7 +55,7 @@ export function CandleChart({ chart, height = 260 }: { chart: PickChart | null; 
   return (
     <div className="chart-box" style={{ height }}>
       <div ref={el} className="chart-el" />
-      {!chart && <div className="chart-empty muted">No pick yet. The chart appears when Chief picks a token.</div>}
+      {!chart && <div className="chart-empty muted">No chart yet. It shows the newest token that clears chain_kill, built from the bot's own price samples.</div>}
     </div>
   );
 }

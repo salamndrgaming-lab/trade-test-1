@@ -7,14 +7,15 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm -r --parallel --filter @coin/bot --filter @coin/web dev",
+    "dev": "pnpm --parallel --filter @coin/bot --filter @coin/web run dev:stack",
     "dev:web": "pnpm --filter @coin/web dev",
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @coin/web build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "secret-scan": "node scripts/secret-scan.mjs --all",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "check:no-mock": "node scripts/check-no-mock.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3"

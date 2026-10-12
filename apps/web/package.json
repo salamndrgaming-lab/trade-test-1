@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "icons": "node ../../scripts/make-icons.mjs public/icons",
     "test": "echo 'web: no unit tests yet (visual checks via scripts/screens.mjs)'",
-    "dev:bot": "VITE_STATE_URL=http://localhost:8787/state vite"
+    "dev:stack": "VITE_STATE_URL=/state vite"
   },
   "dependencies": {
     "@coin/shared": "workspace:*",

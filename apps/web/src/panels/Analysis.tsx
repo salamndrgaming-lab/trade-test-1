@@ -22,7 +22,7 @@ export function Analysis({ state, token, onSelect, pinned }: Props) {
       </div>
 
       <div className="an-chart-head">
-        <h3>{state.pickChart ? `$${state.pickChart.symbol}` : 'Current pick'}</h3>
+        <h3>{state.pickChart ? (state.position ? `$${state.pickChart.symbol}` : `Watching $${state.pickChart.symbol}`) : 'Current pick'}</h3>
         {state.position && (
           <span className={`num ${state.position.pnlPct >= 0 ? 'pos' : 'neg'}`}>
             {state.position.pnlPct >= 0 ? '▲' : '▼'} {state.position.pnlPct.toFixed(1)}% · entry {fmtPrice(state.position.entryPriceUsd)}

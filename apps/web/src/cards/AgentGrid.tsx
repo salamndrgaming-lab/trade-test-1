@@ -26,7 +26,7 @@ function AgentCard({ card, expanded, onToggle, now }: { card: Card; expanded: bo
       <div className="ac-bar" aria-hidden="true">
         <div style={{ width: `${Math.max(0, Math.min(1, card.metric.bar)) * 100}%` }} />
       </div>
-      <div className="ac-quote">“{card.quote}”</div>
+      <div className={`ac-quote${card.quote ? '' : ' muted'}`}>{card.quote ? `“${card.quote}”` : 'Nothing to report yet.'}</div>
       {expanded && <div className="ac-more muted">Said {ago < 60 ? `${ago}s` : `${Math.round(ago / 60)}m`} ago · {AGENTS[card.id].role}</div>}
     </button>
   );

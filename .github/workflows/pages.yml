@@ -1,7 +1,7 @@
 # Deploys apps/web to Cloudflare Pages. Needs two repo secrets:
 #   CLOUDFLARE_API_TOKEN  (token with "Cloudflare Pages: Edit")
 #   CLOUDFLARE_ACCOUNT_ID
-# Optional repo variable VITE_STATE_URL points the dashboard at the bot; leave it unset for the mock desk.
+# Repo variable VITE_STATE_URL points the dashboard at the bot's /state. Without it the site shows "Not connected".
 name: pages
 on:
   push:
@@ -20,6 +20,7 @@ jobs:
       - run: pnpm build:web
         env:
           VITE_STATE_URL: ${{ vars.VITE_STATE_URL }}
+      - run: pnpm check:no-mock
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

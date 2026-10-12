@@ -29,7 +29,11 @@ interface Job { at: number; run: () => void }
 
 export interface MockDeskOptions { seed?: number; now?: number; mode?: 'shadow' | 'live' }
 
+/** Present in any bundle that includes the mock desk. CI fails a production build that contains it. */
+export const MOCK_MARKER = '__coin_trader_mock_desk__';
+
 export class MockDesk {
+  static readonly marker = MOCK_MARKER;
   private rng: Rng;
   private now: number;
   private seq = 0;

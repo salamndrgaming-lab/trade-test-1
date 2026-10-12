@@ -13,7 +13,8 @@ export interface StateSnapshot {
   startedAt: number;
   mode: TradingMode;
   source: 'mock' | 'live';
-  bot: { online: boolean; lastHeartbeat: number; tickMs: number };
+  /** warnings: data feeds that failed on the last tick, in plain words */
+  bot: { online: boolean; lastHeartbeat: number; tickMs: number; warnings?: string[] };
 
   ai: {
     provider: AiProvider;

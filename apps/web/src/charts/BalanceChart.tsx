@@ -47,6 +47,7 @@ export function BalanceChart({ state }: { state: StateSnapshot }) {
       </div>
       <div className="chart-box" style={{ height: 220 }}>
         <div ref={el} className="chart-el" />
+        {points.length === 0 && <div className="chart-empty muted">No balance history yet. Set BOT_WALLET_PUBKEY on the bot to track the wallet.</div>}
       </div>
     </section>
   );

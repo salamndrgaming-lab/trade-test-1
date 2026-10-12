@@ -15,3 +15,4 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web
+      - run: pnpm check:no-mock

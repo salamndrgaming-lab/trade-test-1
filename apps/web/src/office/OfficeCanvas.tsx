@@ -58,7 +58,7 @@ export function OfficeCanvas({ state }: { state: StateSnapshot }) {
         {tapped && tappedCard && (
           <div className="office-pop" style={{ left: tapped.x, top: tapped.y, '--agent': AGENTS[tapped.id].color } as React.CSSProperties} role="status">
             <strong>{tappedCard.name}</strong>
-            <span>“{tappedCard.quote}”</span>
+            <span>{tappedCard.quote ? `“${tappedCard.quote}”` : 'Nothing to report yet.'}</span>
           </div>
         )}
       </div>
