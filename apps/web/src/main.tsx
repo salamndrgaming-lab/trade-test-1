@@ -4,6 +4,7 @@ import '@fontsource/silkscreen/400.css';
 import '@fontsource/silkscreen/700.css';
 import './styles/tokens.css';
 import './styles/app.css';
+import './styles/polish.css';
 import { App } from './App.js';
 
 createRoot(document.getElementById('root')!).render(
