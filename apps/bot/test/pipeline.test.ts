@@ -118,6 +118,21 @@ describe('one full pipeline tick (synthetic API responses, no network)', () => {
   });
 });
 
+describe('big screen', () => {
+  it('stays on one survivor across re-checks, so its candles keep building', async () => {
+    const { pipeline, desk, clock, repo } = setup();
+    await pipeline.refreshWallet();
+    await pipeline.tick();
+    const first = desk.focusToken?.mint;
+    expect(first).toBeTruthy();
+    // live, survivors are re-checked in different minutes: the other survivor is now the latest decided
+    repo.db.prepare('UPDATE verdicts SET decided_at = ? WHERE died_at IS NULL AND mint != ?').run(clock.t + 30_000, first);
+    clock.t += 60_000;
+    await pipeline.tick();
+    expect(desk.focusToken?.mint).toBe(first);
+  });
+});
+
 describe('phase 3: model scores and Chief (synthetic AI replies)', () => {
   it('scores chain survivors, kills a fake account at soft_kill, and Chief picks the clean token', async () => {
     const { buildAi } = await import('../src/ai/index.js');

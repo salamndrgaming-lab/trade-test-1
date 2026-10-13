@@ -165,7 +165,13 @@ export class Pipeline {
     // the big screen follows Chief's latest pick, else the newest survivor
     const last = repo.lastPick();
     const lastTok = last && start - last.t < env.watchMs ? repo.recentVerdicts(200).find((t) => t.mint === last.mint) : null;
-    const top = lastTok ?? repo.survivors(1, start - env.watchMs)[0];
+    // re-checks re-decide survivors every few minutes, so "newest" means newly alive, not latest decided;
+    // otherwise the screen would hop between survivors and drop its candles on every re-check
+    const alive = repo.survivors(50, start - env.watchMs);
+    const newlyAlive = alive.find((t) => !this.aliveBefore.has(t.mint));
+    const kept = alive.find((t) => t.mint === desk.focusToken?.mint);
+    this.aliveBefore = new Set(alive.map((t) => t.mint));
+    const top = lastTok ?? newlyAlive ?? kept ?? alive[0];
     desk.setFocus(top ? { mint: top.mint, symbol: top.symbol, pairAddress: top.pairAddress } : null);
 
     desk.tickDone(this.now(), summarizeErrors(report.errors));
@@ -176,6 +182,8 @@ export class Pipeline {
   }
 
   private lastDecisionAt = 0;
+  /** survivors seen on the previous tick, to spot a newly alive one for the big screen */
+  private aliveBefore = new Set<string>();
   private offered = new Set<string>();
 
   /** Chief looks at the top 3 shortlisted tokens by momentum, refreshes stale scores, and picks one or passes. */
