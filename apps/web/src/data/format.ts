@@ -28,16 +28,13 @@ export function fmtCompactUsd(v: number | null | undefined): string {
   return `${sign}$${a.toFixed(0)}`;
 }
 
-/** Memecoin prices span 1e-9 to 1e2: keep four significant digits, write tiny ones as 0.0₅1234. */
+/** Memecoin prices span 1e-9 to 1e2: keep four significant digits in plain decimals (the canvas font has no subscripts). */
 export function fmtPrice(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—';
   if (v === 0) return '$0';
   if (v >= 1) return `$${v.toFixed(v >= 1000 ? 0 : 2)}`;
-  if (v >= 0.001) return `$${v.toPrecision(4)}`;
-  const zeros = Math.floor(-Math.log10(v)) - 1;
-  const digits = Math.round(v * 10 ** (zeros + 4)).toString().slice(0, 4);
-  const sub = String(zeros).split('').map((d) => '₀₁₂₃₄₅₆₇₈₉'[Number(d)]).join('');
-  return `$0.0${sub}${digits}`;
+  const zeros = Math.max(0, Math.floor(-Math.log10(v)));
+  return `$${v.toFixed(Math.min(zeros + 3, 12))}`;
 }
 
 /** Plain-language name for each threshold key (hard, chain and soft). */
