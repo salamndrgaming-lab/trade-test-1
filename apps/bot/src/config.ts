@@ -39,6 +39,22 @@ const Env = z.object({
   /** Ticket used for chain_kill quotes when no wallet is configured yet. */
   QUOTE_TICKET_SOL: z.coerce.number().positive().optional(),
 
+  // ── AI (all free tiers) ──
+  CF_ACCOUNT_ID: z.string().optional(),
+  CF_WORKERS_AI_TOKEN: z.string().optional(),
+  WORKERS_AI_SCORE_MODEL: z.string().default('@cf/zai-org/glm-4.7-flash'),
+  WORKERS_AI_PICK_MODEL: z.string().default('@cf/openai/gpt-oss-120b'),
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().default('openai/gpt-oss-120b'),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  AI_DAILY_NEURONS: z.coerce.number().positive().default(10_000),
+  AI_SWITCH_AT: z.coerce.number().min(0.1).max(1).default(0.9),
+  AI_MAX_TOKENS: z.coerce.number().int().min(64).default(300),
+  CHIEF_MAX_TOKENS: z.coerce.number().int().min(64).default(400),
+  AI_SCORES_PER_TICK: z.coerce.number().int().min(0).default(6),
+  CHIEF_MIN_MINUTES: z.coerce.number().min(0).default(30),
+
   TICK_SECONDS: z.coerce.number().int().min(15).default(60),
   RECHECK_MINUTES: z.coerce.number().int().min(1).default(5),
   WATCH_HOURS: z.coerce.number().min(0.5).default(3),
@@ -65,6 +81,22 @@ export interface BotEnv {
   recheckMs: number;
   watchMs: number;
   holdersViaGpa: boolean;
+  ai: {
+    cfAccountId: string | null;
+    cfToken: string | null;
+    scoreModel: string;
+    pickModel: string;
+    groqKey: string | null;
+    groqModel: string;
+    geminiKey: string | null;
+    geminiModel: string;
+    dailyNeurons: number;
+    switchAt: number;
+    maxTokens: number;
+    chiefMaxTokens: number;
+    scoresPerTick: number;
+    chiefMinMs: number;
+  };
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): BotEnv {
@@ -98,5 +130,21 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): BotEnv {
     recheckMs: e.RECHECK_MINUTES * 60_000,
     watchMs: e.WATCH_HOURS * 3_600_000,
     holdersViaGpa: e.HOLDERS_VIA_GPA,
+    ai: {
+      cfAccountId: e.CF_ACCOUNT_ID || null,
+      cfToken: e.CF_WORKERS_AI_TOKEN || null,
+      scoreModel: e.WORKERS_AI_SCORE_MODEL,
+      pickModel: e.WORKERS_AI_PICK_MODEL,
+      groqKey: e.GROQ_API_KEY || null,
+      groqModel: e.GROQ_MODEL,
+      geminiKey: e.GEMINI_API_KEY || null,
+      geminiModel: e.GEMINI_MODEL,
+      dailyNeurons: e.AI_DAILY_NEURONS,
+      switchAt: e.AI_SWITCH_AT,
+      maxTokens: e.AI_MAX_TOKENS,
+      chiefMaxTokens: e.CHIEF_MAX_TOKENS,
+      scoresPerTick: e.AI_SCORES_PER_TICK,
+      chiefMinMs: e.CHIEF_MIN_MINUTES * 60_000,
+    },
   };
 }

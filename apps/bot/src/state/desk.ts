@@ -26,6 +26,8 @@ export class LiveDesk {
   private warnings: string[] = [];
   private wallet = { address: '', sol: null as number | null, solUsd: null as number | null };
   ticketSol = 0;
+  /** live AI router state (phase 3); without it the desk reports rules-only */
+  ai: (() => StateSnapshot['ai']) | null = null;
 
   constructor(
     private repo: Repo,
@@ -132,15 +134,7 @@ export class LiveDesk {
       mode: this.mode,
       source: 'live',
       bot: { online: this.lastTickAt > 0 && now - this.lastTickAt < this.tickMs * 3, lastHeartbeat: this.lastTickAt, tickMs: this.tickMs, warnings: [...this.warnings] },
-      ai: {
-        // phase 3 wires the model router; until then the desk runs on rules only and never trades
-        provider: 'rules_only',
-        neuronsUsedToday: 0,
-        neuronsDailyLimit: 10_000,
-        switchAt: 0.9,
-        callsToday: { workers_ai: 0, groq: 0, gemini: 0, rules_only: 0 },
-        newTradesBlocked: true,
-      },
+      ai: this.ai ? this.ai() : NO_AI,
       wallet: {
         address: this.wallet.address,
         solBalance: sol ?? 0,
@@ -193,13 +187,25 @@ export class LiveDesk {
     a.scan.metric = mom === null ? { label: 'Momentum', value: 0, display: '—', bar: 0 } : { label: 'Momentum', value: mom, display: mom.toFixed(2), bar: mom };
     const rate = reachedChain.length ? passedChain.length / reachedChain.length : null;
     a.vet.metric = rate === null ? { label: 'Chain pass', value: 0, display: '—', bar: 0 } : { label: 'Chain pass (recent)', value: rate, display: `${Math.round(rate * 100)}%`, bar: rate };
-    a.social.metric = { label: 'Is project', value: 0, display: '—', bar: 0 };
-    a.chief.metric = { label: 'Picks today', value: 0, display: '0', bar: 0 };
+    const scored = recent.find((t) => t.soft);
+    const own = scored?.soft?.account_is_the_project ?? null;
+    a.social.metric = own === null ? { label: 'Is project', value: 0, display: '—', bar: 0 } : { label: `Is project ($${scored!.symbol})`, value: own, display: own.toFixed(2), bar: own };
+    const picks = this.repo.picksToday(this.clock());
+    a.chief.metric = { label: 'Picks today', value: picks, display: `${picks}`, bar: Math.min(1, picks / 10) };
     const tk = this.ticketSol;
     a.size.metric = { label: 'Quote ticket', value: tk, display: `${tk.toFixed(3)} SOL`, bar: tk > 0 ? 1 : 0 };
     a.fills.metric = { label: 'Fills today', value: 0, display: '0', bar: 0 };
     a.risk.metric = { label: 'Loss cap used', value: 0, display: `0%/${RAILS.dailyLossCapPct}%`, bar: 0 };
   }
 }
+
+const NO_AI: StateSnapshot['ai'] = {
+  provider: 'rules_only',
+  neuronsUsedToday: 0,
+  neuronsDailyLimit: 10_000,
+  switchAt: 0.9,
+  callsToday: { workers_ai: 0, groq: 0, gemini: 0, rules_only: 0 },
+  newTradesBlocked: true,
+};
 
 const round = (x: number, d: number) => Math.round(x * 10 ** d) / 10 ** d;

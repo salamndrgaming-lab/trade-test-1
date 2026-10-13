@@ -11,13 +11,30 @@ import type { HttpRequest, HttpResponse, Transport } from '../src/http/transport
 const SOL = 'So11111111111111111111111111111111111111112';
 
 /** Deterministic on-curve wallet address (a real ed25519 public key). */
+const memo = new Map<string, string>();
 export function wallet(n: number): string {
+  const k = `w${n}`;
+  const hit = memo.get(k);
+  if (hit) return hit;
+  const v = walletRaw(n);
+  memo.set(k, v);
+  return v;
+}
+function walletRaw(n: number): string {
   const seed = new Uint8Array(32).fill(n + 1);
   return bs58.encode(ed25519.getPublicKey(seed));
 }
 
 /** Deterministic 32-byte address that is NOT a valid ed25519 point (like a PDA). */
 export function offCurve(n: number): string {
+  const k = `o${n}`;
+  const hit = memo.get(k);
+  if (hit) return hit;
+  const v = offCurveRaw(n);
+  memo.set(k, v);
+  return v;
+}
+function offCurveRaw(n: number): string {
   for (let i = 0; i < 10_000; i++) {
     const b = new Uint8Array(32).map((_, j) => (n * 131 + i * 7 + j * 13) & 255);
     try { ed25519.Point.fromBytes(b); } catch { return bs58.encode(b); }
@@ -57,6 +74,7 @@ export const SCENARIO: Tok[] = [
   { id: 6, symbol: 'TRAP', ...good, sellImpact: null, feed: 'boost' },
   { id: 7, symbol: 'SLIP', ...good, sellImpact: 6.2, feed: 'boost' },
   { id: 8, symbol: 'CLEAN', ...good, feed: 'boost' },
+  { id: 9, symbol: 'FAKER', ...good, feed: 'boost' },
 ];
 
 const SUPPLY = 1_000_000_000_000_000n; // 1e9 tokens at 6 decimals
@@ -81,7 +99,7 @@ export function pairJson(t: Tok, now: number) {
 
 /** Routes requests to synthetic responses. Counts calls per service. */
 export class SyntheticTransport implements Transport {
-  calls = { dexscreener: 0, rpc: 0, jupiter: 0 };
+  calls = { dexscreener: 0, rpc: 0, jupiter: 0, ai: 0 };
   constructor(private toks: Tok[], private now: () => number) {}
 
   async send(req: HttpRequest): Promise<HttpResponse> {
@@ -142,6 +160,19 @@ export class SyntheticTransport implements Transport {
       }
       if (body.method === 'getBalance') return ok({ context: ctx, value: 5_000_000_000 });
       return json(200, { jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'Method not found' } });
+    }
+
+    if (req.service === 'ai') {
+      // Workers AI: scoring (chat) answers per symbol; Chief (Responses) picks the first finalist
+      const body = req.body as { input?: { content: string }[]; messages?: { content: string }[] };
+      if (u.pathname.endsWith('/responses')) {
+        const mint = /"mint":"([^"]+)"/.exec(body.input![1]!.content)?.[1] ?? null;
+        return json(200, { output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ pick: mint, reason: 'Best of the bunch.', quote: 'That one. Size it.' }) }] }], usage: { input_tokens: 600, output_tokens: 300 } });
+      }
+      const user = body.messages![1]!.content;
+      const sym = /Token: \$(\w+)/.exec(user)?.[1] ?? '';
+      const scores = { concentration_is_exit_risk: 0.2, momentum_already_spent: 0.3, liquidity_fits_ticket: 0.85, account_is_the_project: sym === 'FAKER' ? 0.2 : 0.9, recycled_account: 0.1, dev_still_loaded: 0.2 };
+      return json(200, { choices: [{ message: { content: JSON.stringify({ ...scores, vet_quote: `${sym} holders look fine.`, social_quote: `${sym} handle checks out.` }) } }], usage: { prompt_tokens: 450, completion_tokens: 150 } });
     }
 
     // jupiter /order without taker: quote only

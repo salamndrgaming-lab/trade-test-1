@@ -1,3 +1,4 @@
+import { buildAi } from './ai/index.js';
 import { readEnv } from './config.js';
 import { openDb, Repo } from './db/db.js';
 import { FixtureTransport, LiveTransport, RecordingTransport, type Transport } from './http/transport.js';
@@ -32,11 +33,13 @@ const desk = new LiveDesk(repo, env.mode, env.tickMs);
 const dex = new DexScreener(transport, env.dexBase, env.dexMaxPerMin);
 const rpc = new SolanaRpc(transport, env.rpcUrl ?? 'http://fixtures.invalid');
 const jupiter = new Jupiter(transport, env.jupBase, env.jupApiKey);
-const pipeline = new Pipeline({ env, repo, desk, dex, rpc, jupiter });
+const { router, brain } = buildAi(env, repo, transport, Date.now, (pct) => desk.emit({ agent: 'chief', kind: 'ai_budget', provider: 'groq', pct }));
+desk.ai = () => router.state();
+const pipeline = new Pipeline({ env, repo, desk, dex, rpc, jupiter, brain });
 
 const app = await buildServer({ snapshot: () => desk.snapshot() }, { allowedOrigin: env.allowedOrigin });
 await app.listen({ host: env.host, port: env.port });
-log.info('bot api listening', { host: env.host, port: env.port, dataSource: env.dataSource, wallet: env.walletPubkey ? 'configured' : 'none', jupiterAuth: env.jupApiKey ? 'api key' : 'keyless' });
+log.info('bot api listening', { host: env.host, port: env.port, dataSource: env.dataSource, wallet: env.walletPubkey ? 'configured' : 'none', jupiterAuth: env.jupApiKey ? 'api key' : 'keyless', ai: router.current() });
 
 /** Run `fn` every `ms`, never overlapping, never dying on an error. */
 function every(ms: number, fn: () => Promise<unknown>) {

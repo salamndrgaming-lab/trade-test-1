@@ -3,6 +3,8 @@
  * Also honours a server-requested pause (429 / x-ratelimit-reset).
  */
 export class RateLimiter {
+  /** Clock used when none is passed. Tests swap in a simulated clock so long runs take no real time. */
+  static defaultClock: { now(): number; sleep(ms: number): Promise<void> } | null = null;
   private stamps: number[] = [];
   private chain: Promise<void> = Promise.resolve();
   private pausedUntil = 0;
@@ -10,7 +12,7 @@ export class RateLimiter {
   constructor(
     private readonly max: number,
     private readonly windowMs: number,
-    private readonly clock: { now(): number; sleep(ms: number): Promise<void> } = realClock,
+    private readonly clock: { now(): number; sleep(ms: number): Promise<void> } = RateLimiter.defaultClock ?? realClock,
   ) {}
 
   /** Resolves when the caller may make one request. */

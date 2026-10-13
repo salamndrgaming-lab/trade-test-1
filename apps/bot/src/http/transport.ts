@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 export interface HttpRequest {
   /** logical service name, used for fixture file names */
-  service: 'dexscreener' | 'rpc' | 'jupiter';
+  service: 'dexscreener' | 'rpc' | 'jupiter' | 'ai';
   method: 'GET' | 'POST';
   url: string;
   headers?: Record<string, string>;

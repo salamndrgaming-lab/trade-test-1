@@ -38,6 +38,6 @@ export function dropLine(t: TokenAnalysis): { agent: AgentId; text: string } {
 export function survivorLines(t: TokenAnalysis): { vet: string; social: string } {
   return {
     vet: pickBy(t.mint, [`$${t.symbol} clean on-chain. Sells route.`, `Chain checks pass on $${t.symbol}.`]).slice(0, 60),
-    social: `$${t.symbol} needs model scores. Phase 3.`.slice(0, 60),
+    social: `Waiting on the model for $${t.symbol}.`.slice(0, 60),
   };
 }

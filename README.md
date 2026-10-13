@@ -4,10 +4,10 @@ A Solana memecoin trading desk run by eight pixel-blob agents. Each new token wa
 (`free_kill → trade_kill → chain_kill → soft_kill → pick`). Chief picks one survivor, and the bot buys it through Jupiter.
 The dashboard is an installable PWA with an animated isometric office, live charts and a hold-to-confirm kill switch.
 
-> **Status: Phase 2 (live data).** The bot crawls new Solana tokens on DexScreener and runs `free_kill`, `trade_kill` and
-> `chain_kill` on real market, on-chain and Jupiter quote data, saving every verdict in SQLite. The model checks (`soft_kill`,
-> Chief's pick) arrive in phase 3, and trading in phase 4. `TRADING_MODE` defaults to `shadow`. No code path that signs or
-> sends a transaction exists yet.
+> **Status: Phase 3 (free AI brain).** The bot crawls new Solana tokens and runs the whole kill chain on real data:
+> `free_kill`, `trade_kill` and `chain_kill` on market, on-chain and Jupiter quote data, then `soft_kill` on model scores
+> (Vet + Social, one JSON call per token), then Chief picks one of the top three. Trading arrives in phase 4.
+> `TRADING_MODE` defaults to `shadow`. No code path that signs or sends a transaction exists yet.
 >
 > **No mock data in production.** The bot has no fake-data mode. The fake "dev desk" exists only for `vite dev` UI work.
 > Production web builds exclude it, and `pnpm check:no-mock` (run in CI and before every Pages deploy) fails the build if it slips in.
@@ -54,6 +54,18 @@ in production builds.
 | Sell route and price impact at ticket size | Jupiter Swap v2 `GET /order` **without a taker** (quote only, no transaction) | 1 req/s with key, 0.5 without |
 | Big-screen candles | the bot's own 15 s price samples of the newest survivor | 4 req/min |
 | Balance | RPC `getBalance` on `BOT_WALLET_PUBKEY` + SOL price from DexScreener, every 5 min | — |
+| Vet + Social scores (soft_kill) | Workers AI `@cf/zai-org/glm-4.7-flash`, thinking off, JSON mode, ≤ 300 output tokens | ~8 neurons per token |
+| Chief's pick | Workers AI `@cf/openai/gpt-oss-120b`, Responses API, reasoning effort low, ≤ 400 output tokens | ~45 neurons per decision |
+| Fallbacks | Groq `openai/gpt-oss-120b`, then Gemini (`GEMINI_MODEL`), then rules only: no picks, no new trades | Workers AI hands over at 90% of 10,000 neurons/day |
+
+### How the AI budget is kept
+
+- Every reply is validated with zod (six 0–1 scores plus two quotes of 60 characters or fewer). An invalid reply is retried once, then the token fails `soft_kill`.
+- Scores are cached for 15 minutes. A price move over 20% voids the cache. Expired or repriced scores are refreshed only when the token reaches Chief's top three; everywhere else the last scores stand. Every survivor is scored once on arrival.
+- Chief decides only when a token it has not seen enters the top three, and at most every 30 minutes (`CHIEF_MIN_MINUTES`).
+- Neurons are counted per UTC day from each reply's token usage at Cloudflare's published rates (GLM-4.7-Flash 5,500 in / 36,400 out per million tokens; gpt-oss-120b 31,818 / 68,182).
+- `test/budget.test.ts` runs the real pipeline over a simulated busy day (about 2,800 new tokens, 240 reaching the model) and must stay under 9,000 neurons. Last run: 400 scoring calls + 55 Chief decisions = 5,344 neurons.
+
 
 The calls are staged so a token only costs what it needs: tokens that fail age, liquidity or mcap never touch the RPC, and
 Jupiter is only asked once mint and freeze authority are both revoked. Holder concentration skips accounts owned by programs
@@ -81,6 +93,15 @@ Every push to `main` then deploys.
 
 Then put the Pages site behind **Cloudflare Access** (Zero Trust → Access → Applications → self-hosted, policy: your email only).
 The full server and tunnel guide arrives as `DEPLOY.md` in phase 4.
+
+## Phase 3 checklist
+
+With the AI keys set, after a few hours:
+- [ ] The header's AI budget gauge rises with each scored token and stays well under 9,000 by the end of the UTC day
+- [ ] Survivors of `chain_kill` get Vet and Social quotes on their cards, and some die at `soft_kill` with the failing score shown
+- [ ] Chief picks a token now and then ("Picks today"); the big screen follows the latest pick
+- [ ] `sqlite3 data/coin-trader.sqlite "select * from ai_usage"` matches the gauge
+- [ ] Remove the Workers AI token: the gauge reads Groq; remove every key: "Rules only · no new trades"
 
 ## Phase 2 checklist
 

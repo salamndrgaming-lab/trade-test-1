@@ -112,8 +112,8 @@ describe('ticket size', () => {
 describe('database', () => {
   it('migrates and counts today by kill step', () => {
     const repo = new Repo(openDb(':memory:'));
-    expect(repo.db.pragma('user_version', { simple: true })).toBe(1);
+    expect(repo.db.pragma('user_version', { simple: true })).toBe(2);
     const tables = (repo.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]).map((r) => r.name);
-    for (const t of ['tokens', 'verdicts', 'handles_seen', 'trades', 'balance_snapshots', 'agent_events', 'ai_usage', 'settings']) expect(tables).toContain(t);
+    for (const t of ['tokens', 'verdicts', 'handles_seen', 'trades', 'balance_snapshots', 'agent_events', 'ai_usage', 'settings', 'picks']) expect(tables).toContain(t);
   });
 });

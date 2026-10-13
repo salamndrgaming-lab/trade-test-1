@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { AgentEvent, KillStep, TokenAnalysis } from '@coin/shared';
+import type { AgentEvent, KillStep, SoftScores, TokenAnalysis } from '@coin/shared';
 
 export type DB = Database.Database;
 
@@ -87,6 +87,21 @@ const MIGRATIONS: string[] = [
     key             TEXT PRIMARY KEY,
     value           TEXT NOT NULL
   );
+  `,
+  `
+  -- phase 3: price at scoring time (cache is void if price moves > 20%), and Chief's picks
+  ALTER TABLE verdicts ADD COLUMN soft_price REAL;
+  ALTER TABLE verdicts ADD COLUMN facts_json TEXT;   -- the social facts the model was shown
+  CREATE TABLE picks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    t               INTEGER NOT NULL,
+    mint            TEXT NOT NULL,
+    symbol          TEXT NOT NULL,
+    provider        TEXT NOT NULL,
+    reason          TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX picks_t ON picks(t);
+  CREATE INDEX handles_seen_handle ON handles_seen(handle, first_seen);
   `,
 ];
 
@@ -221,6 +236,76 @@ export class Repo {
   tradeVolumeBetween(from: number, to: number): number {
     const r = this.db.prepare('SELECT COALESCE(SUM(usd_value), 0) v FROM trades WHERE t >= ? AND t < ?').get(from, to) as { v: number };
     return r.v;
+  }
+
+  // ── AI usage (per provider per UTC day) ──
+  addAiUsage(day: string, provider: string, neurons: number, tokensIn: number, tokensOut: number) {
+    this.db
+      .prepare(
+        `INSERT INTO ai_usage (day, provider, calls, neurons, tokens_in, tokens_out) VALUES (?, ?, 1, ?, ?, ?)
+         ON CONFLICT(day, provider) DO UPDATE SET calls = calls + 1, neurons = neurons + excluded.neurons,
+           tokens_in = tokens_in + excluded.tokens_in, tokens_out = tokens_out + excluded.tokens_out`,
+      )
+      .run(day, provider, neurons, tokensIn, tokensOut);
+  }
+
+  aiUsage(day: string): Record<string, { calls: number; neurons: number; tokensIn: number; tokensOut: number }> {
+    const rows = this.db.prepare('SELECT provider, calls, neurons, tokens_in, tokens_out FROM ai_usage WHERE day = ?').all(day) as { provider: string; calls: number; neurons: number; tokens_in: number; tokens_out: number }[];
+    return Object.fromEntries(rows.map((r) => [r.provider, { calls: r.calls, neurons: r.neurons, tokensIn: r.tokens_in, tokensOut: r.tokens_out }]));
+  }
+
+  // ── model-score cache ──
+  getSoft(mint: string): { soft: SoftScores; expiresAt: number; price: number | null } | null {
+    const r = this.db.prepare('SELECT soft_json, soft_expires_at, soft_price FROM verdicts WHERE mint = ?').get(mint) as { soft_json: string | null; soft_expires_at: number | null; soft_price: number | null } | undefined;
+    if (!r?.soft_json) return null;
+    return { soft: JSON.parse(r.soft_json) as SoftScores, expiresAt: r.soft_expires_at ?? 0, price: r.soft_price };
+  }
+
+  saveSoft(mint: string, soft: SoftScores, expiresAt: number, price: number) {
+    this.db.prepare('UPDATE verdicts SET soft_json = ?, soft_expires_at = ?, soft_price = ? WHERE mint = ?').run(JSON.stringify(soft), expiresAt, price, mint);
+  }
+
+  saveFacts(mint: string, facts: unknown) {
+    this.db.prepare('UPDATE verdicts SET facts_json = ? WHERE mint = ?').run(JSON.stringify(facts), mint);
+  }
+
+  getFacts<T>(mint: string): T | null {
+    const r = this.db.prepare('SELECT facts_json FROM verdicts WHERE mint = ?').get(mint) as { facts_json: string | null } | undefined;
+    return r?.facts_json ? (JSON.parse(r.facts_json) as T) : null;
+  }
+
+  /** Tokens that passed soft_kill within the window (Chief's pool). */
+  shortlisted(sinceMs: number): TokenAnalysis[] {
+    const rows = this.db
+      .prepare(`SELECT analysis_json FROM verdicts WHERE died_at IS NULL AND verdict = 'shortlisted' AND decided_at >= ?`)
+      .all(sinceMs) as { analysis_json: string }[];
+    return rows.map((r) => JSON.parse(r.analysis_json) as TokenAnalysis);
+  }
+
+  // ── X handles, to spot recycled accounts ──
+  recordHandle(handle: string, mint: string, t: number) {
+    this.db.prepare('INSERT OR IGNORE INTO handles_seen (handle, mint, first_seen) VALUES (?, ?, ?)').run(handle, mint, t);
+  }
+
+  handleHistory(handle: string, exceptMint: string): { mint: string; symbol: string; firstSeen: number }[] {
+    return (this.db
+      .prepare(`SELECT h.mint, COALESCE(t.symbol, '') symbol, h.first_seen firstSeen FROM handles_seen h LEFT JOIN tokens t ON t.mint = h.mint
+                WHERE h.handle = ? AND h.mint != ? ORDER BY h.first_seen LIMIT 10`)
+      .all(handle, exceptMint) as { mint: string; symbol: string; firstSeen: number }[]);
+  }
+
+  // ── Chief's picks ──
+  addPick(t: number, mint: string, symbol: string, provider: string, reason: string) {
+    this.db.prepare('INSERT INTO picks (t, mint, symbol, provider, reason) VALUES (?, ?, ?, ?, ?)').run(t, mint, symbol, provider, reason);
+  }
+
+  picksToday(now: number): number {
+    const start = Date.parse(utcDay(now) + 'T00:00:00Z');
+    return (this.db.prepare('SELECT COUNT(*) n FROM picks WHERE t >= ?').get(start) as { n: number }).n;
+  }
+
+  lastPick(): { t: number; mint: string; symbol: string } | null {
+    return (this.db.prepare('SELECT t, mint, symbol FROM picks ORDER BY t DESC LIMIT 1').get() as { t: number; mint: string; symbol: string } | undefined) ?? null;
   }
 
   getSetting(key: string): string | null {
