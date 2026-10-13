@@ -63,7 +63,7 @@ export async function evaluateToken(deps: EvalDeps, mint: string, pair: DexPair,
     log.warn('mint account not found or not a mint', { mint });
     return finish(base, 'free_kill', skipped);
   }
-  const conc = await deps.rpc.concentration(mint, mintInfo.supply, pair.pairAddress);
+  const conc = await deps.rpc.concentration(mint, mintInfo.supply, pair.pairAddress, mintInfo.program);
   m.topWallet = conc.topWallet;
   m.top10 = conc.top10;
   m.mintRevoked = mintInfo.mintAuthority === null;

@@ -7,7 +7,8 @@ import { ticketLamports } from '../src/pipeline/evaluate.js';
 import { momentum, xHandle } from '../src/pipeline/metrics.js';
 import { bestPair, DexPair } from '../src/sources/dexscreener.js';
 import { Jupiter } from '../src/sources/jupiter.js';
-import { isOnCurve } from '../src/sources/solana.js';
+import { isOnCurve, SolanaRpc } from '../src/sources/solana.js';
+import bs58 from 'bs58';
 import type { HttpResponse, Transport } from '../src/http/transport.js';
 import { SCENARIO, offCurve, pairJson, wallet } from './synthetic.js';
 
@@ -77,6 +78,34 @@ describe('on-curve check (excludes PDAs from holder concentration)', () => {
     expect(isOnCurve(wallet(1))).toBe(true);
     expect(isOnCurve(offCurve(1))).toBe(false);
     expect(isOnCurve('not-base58!')).toBe(false);
+  });
+});
+
+describe('holder concentration when the RPC refuses getTokenLargestAccounts', () => {
+  const slice = (owner: string, amount: bigint) => {
+    const b = Buffer.alloc(40);
+    Buffer.from(bs58.decode(owner)).copy(b, 0);
+    b.writeBigUInt64LE(amount, 32);
+    return { pubkey: wallet(99), account: { data: [b.toString('base64'), 'base64'] } };
+  };
+  it('falls back to getProgramAccounts, sums per owner, skips programs, and does not pause the RPC', async () => {
+    const methods: string[] = [];
+    const tr: Transport = {
+      send: async (r) => {
+        const m = (r.body as { method: string }).method;
+        methods.push(m);
+        if (m === 'getTokenLargestAccounts') return { status: 429, headers: {}, json: { jsonrpc: '2.0', id: 1, error: { code: 429, message: 'Too many requests for a specific RPC call' } } };
+        return { status: 200, headers: {}, json: { jsonrpc: '2.0', id: 1, result: [slice(offCurve(1), 600n), slice(wallet(1), 30n), slice(wallet(1), 20n), slice(wallet(2), 40n), slice(wallet(3), 0n)] } };
+      },
+    };
+    const rpc = new SolanaRpc(tr, 'https://rpc.example.com');
+    const t0 = Date.now();
+    const c = await rpc.concentration('Mint111', 1000n, null);
+    expect(Date.now() - t0).toBeLessThan(1000);
+    expect(c).toEqual({ topWallet: 0.05, top10: 0.09, excludedPrograms: 1 });
+    // the refusal is remembered: the next token goes straight to getProgramAccounts
+    await rpc.concentration('Mint222', 1000n, null);
+    expect(methods).toEqual(['getTokenLargestAccounts', 'getProgramAccounts', 'getProgramAccounts']);
   });
 });
 

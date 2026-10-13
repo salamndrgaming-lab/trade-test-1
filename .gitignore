@@ -19,4 +19,5 @@ wallet*.json
 *.sqlite
 *.sqlite3
 *.db
-data/
+/data/
+apps/bot/data/
